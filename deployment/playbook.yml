@@ -1,0 +1,13 @@
+---
+- name: BASE
+  hosts:
+    - jenkins
+  roles:
+    - base
+
+- name: JENKINS
+  hosts:
+    - jenkins
+  roles:
+    - jenkins
+...
