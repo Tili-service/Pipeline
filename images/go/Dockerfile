@@ -1,13 +1,14 @@
-FROM golang:alpine as builder
-WORKDIR /app
-COPY . .
-RUN go mod tidy
-RUN go install github.com/swaggo/swag/cmd/swag@latest
-RUN swag init --generalInfo cmd/api/main.go --output docs
-RUN go build -o tili-backend cmd/api/main.go
+FROM golang:1.17-alpine
 
-FROM alpine:latest
 WORKDIR /app
-COPY --from=builder /app/tili-backend .
-EXPOSE 8080
-CMD ["./tili-backend"]
+
+SHELL ["/bin/sh", "-c"]
+
+ONBUILD COPY app/go.mod /app/go.mod
+ONBUILD COPY app/src /app/src/
+ONBUILD RUN go mod download && \
+    go build -o compiled-app /app/src/main.go && \
+    mv compiled-app /app/compiled-app && \
+    rm -rf src go.mod
+
+ONBUILD CMD ["/app/compiled-app"]
