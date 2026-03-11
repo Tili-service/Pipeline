@@ -1,0 +1,36 @@
+---
+- name: check if doctl is already installed
+  stat:
+    path: /usr/local/bin/doctl
+  register: doctl_exists
+
+- name: download doctl
+  become: true
+  get_url:
+    url: https://github.com/digitalocean/doctl/releases/download/v1.110.0/doctl-1.110.0-linux-amd64.tar.gz
+    dest: /tmp/doctl.tar.gz
+    mode: '0644'
+  when: not doctl_exists.stat.exists
+
+- name: extract doctl
+  become: true
+  unarchive:
+    src: /tmp/doctl.tar.gz
+    dest: /usr/local/bin
+    remote_src: yes
+    creates: /usr/local/bin/doctl
+  when: not doctl_exists.stat.exists
+
+- name: make doctl executable
+  become: true
+  file:
+    path: /usr/local/bin/doctl
+    mode: '0755'
+  when: not doctl_exists.stat.exists
+
+- name: cleanup doctl archive
+  become: true
+  file:
+    path: /tmp/doctl.tar.gz
+    state: absent
+...

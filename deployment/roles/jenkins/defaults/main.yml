@@ -1,0 +1,17 @@
+---
+jenkins_home: /var/lib/jenkins
+jenkins_port: 8080
+casc_config_dir: "{{ jenkins_home }}/casc_configs"
+tili_dir: "{{ jenkins_home }}/Tili"
+jenkins_user: jenkins
+jenkins_group: jenkins
+kubectl_version: "1.33.0"
+docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+docker_users:
+  - jenkins
+...
