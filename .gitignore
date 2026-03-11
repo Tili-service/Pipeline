@@ -1,2 +1,4 @@
 .env
+.vault_pass
 inventory
+decrypted_all.yml

@@ -1,0 +1,31 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: install required packages
+  become: true
+  apt:
+    name:
+      - git
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - ufw
+      - wget
+    state: present
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: set timezone
+  become: true
+  timezone:
+    name: Europe/Paris
+
+- name: set locale
+  become: true
+  locale_gen:
+    name: fr_FR.UTF-8
+    state: present
+...
