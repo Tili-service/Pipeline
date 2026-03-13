@@ -105,3 +105,19 @@ freeStyleJob('Tili/Push to production') {
         ''')
     }
 }
+
+freeStyleJob('Tili/Run Go Backend') {
+    description('Runs the Go backend using the go-tili image.')
+    steps {
+        shell('''
+            # Stop and remove any existing backend container
+            docker stop go-backend-container || true
+            docker rm go-backend-container || true
+
+            # Run the Go backend in background
+            docker run --name go-backend-container -p 8081:8081 -v {{ tili_dir }}/backend:/app go-tili
+            echo "Go backend is running on port 8081 with container name 'go-backend-container'"
+            echo "To stop the backend, run: docker stop go-backend-container"
+        ''')
+    }
+}

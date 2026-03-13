@@ -1,16 +1,20 @@
 ---
 - name: call doctl role
   include_tasks: doctl.yml
+  tags: doctl
 
 - name: call docker role
   include_tasks: docker.yml
+  tags: docker
 
 - name: call jenkins role
   include_tasks: jenkins.yml
+  tags: jenkins
 
 - name: setup firewall for jenkins
   ufw:
     rule: allow
     port: "8080"
     proto: tcp
+  tags: firewall
 ...

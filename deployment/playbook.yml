@@ -1,13 +1,7 @@
 ---
-- name: BASE
-  hosts:
-    - jenkins
+- name: Setup Jenkins Server
+  hosts: jenkins
   roles:
-    - base
-
-- name: JENKINS
-  hosts:
-    - jenkins
-  roles:
-    - jenkins
+    - { role: base, tags: base }
+    - { role: jenkins, tags: jenkins }
 ...

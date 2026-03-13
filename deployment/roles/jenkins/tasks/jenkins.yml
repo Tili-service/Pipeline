@@ -7,6 +7,7 @@
       - openjdk-17-jre
     state: present
     update_cache: yes
+    cache_valid_time: 3600
 
 - name: ensure keyrings directory exists
   file:
@@ -16,24 +17,36 @@
 
 - name: download jenkins key
   get_url:
-    url: https://pkg.jenkins.io/debian-stable/jenkins.io-2026.key
+    url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
     dest: /etc/apt/keyrings/jenkins-keyring.asc
     mode: '0644'
 
 - name: add jenkins repository
   copy:
     dest: /etc/apt/sources.list.d/jenkins.list
-    content: "deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/"
+    content: "deb [arch=amd64 signed-by=/etc/apt/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/"
     mode: '0644'
 
-- name: update apt cache
+- name: force update apt cache after adding jenkins repo
   apt:
     update_cache: yes
+
+- name: check jenkins package availability
+  shell: apt-cache show jenkins | head -1
+  register: jenkins_package_check
+  changed_when: false
+  failed_when: false
 
 - name: install jenkins
   apt:
     name: jenkins
     state: present
+  when: jenkins_package_check.rc == 0
+
+- name: fail if jenkins package not available
+  fail:
+    msg: "Jenkins package is not available in the configured repository. Please check the repository configuration and network connectivity."
+  when: jenkins_package_check.rc != 0
 
 
 
@@ -75,6 +88,7 @@
     chown -R jenkins:jenkins {{ jenkins_home }}/plugins
   args:
     creates: "{{ jenkins_home }}/plugins/job-dsl.jpi"
+  changed_when: false
   when: not plugins_installed.stat.exists
   notify: restart jenkins
 
@@ -119,7 +133,7 @@
   when: github_known_hosts_check.rc != 0
   become_user: jenkins
 
-- name: check if Jenkins SSH key already exists and is valid
+- name: check if Jenkins SSH key already exists
   stat:
     path: "{{ jenkins_home }}/.ssh/id_rsa"
   register: jenkins_key_stat
@@ -131,58 +145,14 @@
   delegate_to: localhost
   become: false
 
-- name: determine if source key is in OpenSSH format
-  set_fact:
-    is_openssh_key: "{{ 'BEGIN OPENSSH PRIVATE KEY' in (source_key_content.content | b64decode) }}"
+- name: ensure source_key_content is defined
+  fail:
+    msg: "Failed to read SSH key from {{ ansible_ssh_private_key_file }}"
+  when: source_key_content.content is undefined
 
-- name: read existing Jenkins key if present
-  slurp:
-    src: "{{ jenkins_home }}/.ssh/id_rsa"
-  register: existing_jenkins_key
-  when: jenkins_key_stat.stat.exists
-
-- name: check if existing key is in PEM format
-  set_fact:
-    existing_key_is_pem: "{{ 'BEGIN RSA PRIVATE KEY' in (existing_jenkins_key.content | b64decode) or 'BEGIN PRIVATE KEY' in (existing_jenkins_key.content | b64decode) }}"
-  when: jenkins_key_stat.stat.exists
-
-- name: process and convert OpenSSH key to PEM if needed
-  block:
-    - name: copy SSH private key to temp location
-      copy:
-        content: "{{ source_key_content.content | b64decode }}"
-        dest: /tmp/jenkins_ssh_key_conversion
-        mode: '0600'
-
-    - name: convert OpenSSH key to PEM format
-      command: ssh-keygen -p -m PEM -f /tmp/jenkins_ssh_key_conversion -N "" -P ""
-      changed_when: false
-
-    - name: read converted key content
-      slurp:
-        src: /tmp/jenkins_ssh_key_conversion
-      register: ssh_key_content
-
-    - name: clean up temporary file
-      file:
-        path: /tmp/jenkins_ssh_key_conversion
-        state: absent
-      changed_when: false
-  when: is_openssh_key and (not jenkins_key_stat.stat.exists or not existing_key_is_pem | default(false))
-
-- name: set ssh_key_content for PEM keys
-  set_fact:
-    ssh_key_content: "{{ source_key_content }}"
-  when: not is_openssh_key
-
-- name: use existing key if already converted
-  set_fact:
-    ssh_key_content: "{{ existing_jenkins_key }}"
-  when: is_openssh_key and jenkins_key_stat.stat.exists and existing_key_is_pem | default(false)
-
-- name: add SSH private key for Jenkins user
+- name: copy SSH private key for Jenkins user
   copy:
-    content: "{{ ssh_key_content.content | b64decode }}"
+    content: "{{ source_key_content.content | b64decode }}"
     dest: "{{ jenkins_home }}/.ssh/id_rsa"
     owner: jenkins
     group: jenkins

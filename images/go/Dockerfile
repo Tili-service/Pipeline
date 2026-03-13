@@ -1,14 +1,19 @@
+# Use the official Golang image as base
 FROM golang:1.17-alpine
 
+# Set working directory
 WORKDIR /app
 
-SHELL ["/bin/sh", "-c"]
+# Copy the Go source code
+COPY . .
 
-ONBUILD COPY app/go.mod /app/go.mod
-ONBUILD COPY app/src /app/src/
-ONBUILD RUN go mod download && \
-    go build -o compiled-app /app/src/main.go && \
-    mv compiled-app /app/compiled-app && \
-    rm -rf src go.mod
+# Build the application
+RUN go mod init tili-backend && \
+    go mod tidy && \
+    go build -o server .
 
-ONBUILD CMD ["/app/compiled-app"]
+# Expose port 8081
+EXPOSE 8081
+
+# Command to run the server
+CMD ["./server"]

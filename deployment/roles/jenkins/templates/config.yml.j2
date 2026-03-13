@@ -36,7 +36,7 @@ credentials:
               privateKeySource:
                 directEntry:
                   privateKey: |
-                    {{ ssh_key_content.content | b64decode | indent(20) }}
+                    {{ source_key_content.content | b64decode | indent(20) }}
 
 jobs:
   - file: "{{ jenkins_home }}/job_dsl.groovy"
