@@ -17,4 +17,11 @@
     port: "8080"
     proto: tcp
   tags: firewall
+
+- name: setup firewall for jenkins additional port
+  ufw:
+    rule: allow
+    port: "8000"
+    proto: tcp
+  tags: firewall
 ...

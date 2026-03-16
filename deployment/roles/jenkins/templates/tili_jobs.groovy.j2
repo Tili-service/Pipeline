@@ -1,0 +1,56 @@
+/* EIP JOBS */
+folder('Tili') {
+    description('Folder for EIP pipeline jobs')
+}
+
+freeStyleJob('Tili/Push to production') {
+    description('Pushes the EIP repository to production.')
+    triggers {
+        scm('H/5 * * * *')
+    }
+    steps {
+        shell('''
+          set -e
+          cd {{ tili_dir }}
+
+          git config user.email "jenkins@jenkins.local"
+          git config user.name "Jenkins"
+
+          git -C backend pull origin main
+          git -C webapp pull origin main
+          git -C mobile pull origin main
+          rm -rf backend/.git webapp/.git mobile/.git
+
+          git rm --cached backend webapp mobile 2>/dev/null || true
+
+          git pull origin main
+          git add backend webapp mobile
+          git diff --cached --quiet || git commit -m "Automated commit from Jenkins"
+          git push origin main
+
+          git clone {{ backend_repository_url }} /tmp/backend_restore
+          mv /tmp/backend_restore/.git backend/.git
+          rm -rf /tmp/backend_restore
+
+          git clone {{ webapp_repository_url }} /tmp/webapp_restore
+          mv /tmp/webapp_restore/.git webapp/.git
+          rm -rf /tmp/webapp_restore
+
+          git clone {{ mobile_repository_url }} /tmp/mobile_restore
+          mv /tmp/mobile_restore/.git mobile/.git
+          rm -rf /tmp/mobile_restore
+        ''')
+    }
+}
+
+freeStyleJob('Tili/Run Go Backend') {
+    description('Runs the Go backend using the go-tili image.')
+    steps {
+        shell('''
+            docker stop tili-backend || true
+            docker rm tili-backend || true
+
+            docker compose -f {{ jenkins_home }}/Tili/backend/docker-compose.yml up --build
+        ''')
+    }
+}
