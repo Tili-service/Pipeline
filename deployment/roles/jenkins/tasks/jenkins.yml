@@ -54,7 +54,7 @@
 
 - name: copy backend .env file in environment directory
   copy:
-    src: docker-compose-env.txt
+    src: docker-compose.env
     dest: "{{ jenkins_home }}/environment/backend/.env"
     owner: jenkins
     group: jenkins
