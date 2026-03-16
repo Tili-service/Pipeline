@@ -9,22 +9,10 @@
     update_cache: yes
     cache_valid_time: 3600
 
-- name: ensure keyrings directory exists
-  file:
-    path: /etc/apt/keyrings
-    state: directory
-    mode: '0755'
-
-- name: download jenkins key
-  get_url:
-    url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
-    dest: /etc/apt/keyrings/jenkins-keyring.asc
-    mode: '0644'
-
 - name: add jenkins repository
   copy:
     dest: /etc/apt/sources.list.d/jenkins.list
-    content: "deb [arch=amd64 signed-by=/etc/apt/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/"
+    content: "deb [trusted=yes] https://pkg.jenkins.io/debian-stable binary/"
     mode: '0644'
 
 - name: force update apt cache after adding jenkins repo
@@ -48,6 +36,29 @@
     msg: "Jenkins package is not available in the configured repository. Please check the repository configuration and network connectivity."
   when: jenkins_package_check.rc != 0
 
+- name: create environment directory for Jenkins
+  file:
+    path: "{{ jenkins_home }}/environment"
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: '0755'
+
+- name: create environment backend directory for Jenkins
+  file:
+    path: "{{ jenkins_home }}/environment/backend"
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: '0755'
+
+- name: copy backend .env file in environment directory
+  copy:
+    src: docker-compose.env
+    dest: "{{ jenkins_home }}/environment/backend/.env"
+    owner: jenkins
+    group: jenkins
+    mode: '0644'
 
 
 # JENKINS PLUGINS INSTALLATION #
@@ -111,6 +122,16 @@
     group: jenkins
     mode: '0644'
   register: job_dsl_copy
+  notify: restart jenkins
+
+- name: copy Tili Job DSL script
+  template:
+    src: tili_jobs.groovy.j2
+    dest: "{{ jenkins_home }}/tili_jobs.groovy"
+    owner: jenkins
+    group: jenkins
+    mode: '0644'
+  register: tili_job_dsl_copy
   notify: restart jenkins
 
 - name: create .ssh directory for Jenkins user

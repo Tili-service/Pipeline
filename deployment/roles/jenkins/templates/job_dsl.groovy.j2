@@ -18,10 +18,15 @@ freeStyleJob('Init EIP repository') {
             }
 
             clone_or_pull "{{ epitech_repository_url }}" "{{ tili_dir }}"
-            clone_or_pull "{{ backend_repository_url }}" "{{ tili_dir }}/backend"
+            clone_or_pull "{{ backend_repository_url }}" "{{ tili_dir }}/backend" && cp -f {{ jenkins_home }}/environment/backend/.env {{ tili_dir }}/backend/.env && echo "FROM go-tili" > {{ tili_dir }}/backend/app/Dockerfile
             clone_or_pull "{{ webapp_repository_url }}" "{{ tili_dir }}/webapp"
             clone_or_pull "{{ mobile_repository_url }}" "{{ tili_dir }}/mobile"
+
+            cp {{ jenkins_home }}/tili_jobs.groovy .
         ''')
+        jobDsl {
+            targets 'tili_jobs.groovy'
+        }
     }
 }
 
@@ -55,69 +60,6 @@ freeStyleJob('Images/Go') {
     steps {
         shell('''
             docker build -t go-tili - < {{ jenkins_home }}/images/go/Dockerfile
-        ''')
-    }
-}
-
-
-
-/* EIP JOBS */
-folder('Tili') {
-    description('Folder for EIP pipeline jobs')
-}
-
-freeStyleJob('Tili/Push to production') {
-    description('Pushes the EIP repository to production.')
-    triggers {
-        scm('H/5 * * * *')
-    }
-    steps {
-        shell('''
-          set -e
-          cd {{ tili_dir }}
-
-          git config user.email "jenkins@jenkins.local"
-          git config user.name "Jenkins"
-
-          git -C backend pull origin main
-          git -C webapp pull origin main
-          git -C mobile pull origin main
-          rm -rf backend/.git webapp/.git mobile/.git
-
-          git rm --cached backend webapp mobile 2>/dev/null || true
-
-          git pull origin main
-          git add backend webapp mobile
-          git diff --cached --quiet || git commit -m "Automated commit from Jenkins"
-          git push origin main
-
-          git clone {{ backend_repository_url }} /tmp/backend_restore
-          mv /tmp/backend_restore/.git backend/.git
-          rm -rf /tmp/backend_restore
-
-          git clone {{ webapp_repository_url }} /tmp/webapp_restore
-          mv /tmp/webapp_restore/.git webapp/.git
-          rm -rf /tmp/webapp_restore
-
-          git clone {{ mobile_repository_url }} /tmp/mobile_restore
-          mv /tmp/mobile_restore/.git mobile/.git
-          rm -rf /tmp/mobile_restore
-        ''')
-    }
-}
-
-freeStyleJob('Tili/Run Go Backend') {
-    description('Runs the Go backend using the go-tili image.')
-    steps {
-        shell('''
-            # Stop and remove any existing backend container
-            docker stop go-backend-container || true
-            docker rm go-backend-container || true
-
-            # Run the Go backend in background
-            docker run --name go-backend-container -p 8081:8081 -v {{ tili_dir }}/backend:/app go-tili
-            echo "Go backend is running on port 8081 with container name 'go-backend-container'"
-            echo "To stop the backend, run: docker stop go-backend-container"
         ''')
     }
 }
