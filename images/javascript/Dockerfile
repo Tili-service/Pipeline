@@ -4,8 +4,9 @@ WORKDIR /app
 
 SHELL ["/bin/bash", "-c"]
 
-ONBUILD COPY package.json /app
-ONBUILD RUN npm install
-ONBUILD COPY . /app
+ONBUILD COPY package.json package-lock.json /app
+ONBUILD RUN npm ci
+ONBUILD COPY . .
 
-ONBUILD CMD ["node", "."]
+ONBUILD EXPOSE 3000
+ONBUILD CMD ["npm", "run", "dev"]
