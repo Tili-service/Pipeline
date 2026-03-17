@@ -52,6 +52,14 @@
     group: jenkins
     mode: '0755'
 
+- name: create environment frontend directory for Jenkins
+  file:
+    path: "{{ jenkins_home }}/environment/frontend"
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: '0755'
+
 - name: copy backend .env file in environment directory
   copy:
     src: docker-compose.env
@@ -59,6 +67,15 @@
     owner: jenkins
     group: jenkins
     mode: '0644'
+
+- name: copy frontend .env file in environment directory
+  copy:
+    src: frontend.env
+    dest: "{{ jenkins_home }}/environment/frontend/.env"
+    owner: jenkins
+    group: jenkins
+    mode: '0644'
+
 
 
 # JENKINS PLUGINS INSTALLATION #

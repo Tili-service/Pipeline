@@ -18,11 +18,12 @@ freeStyleJob('Init EIP repository') {
             }
 
             clone_or_pull "{{ epitech_repository_url }}" "{{ tili_dir }}"
-            clone_or_pull "{{ backend_repository_url }}" "{{ tili_dir }}/backend" && cp -f {{ jenkins_home }}/environment/backend/.env {{ tili_dir }}/backend/.env && echo "FROM go-tili" > {{ tili_dir }}/backend/app/Dockerfile
-            clone_or_pull "{{ webapp_repository_url }}" "{{ tili_dir }}/webapp"
+            clone_or_pull "{{ backend_repository_url }}" "{{ tili_dir }}/backend" && cp -f {{ jenkins_home }}/environment/backend/.env {{ tili_dir }}/backend/.env && echo "FROM go-tili:latest" > {{ tili_dir }}/backend/app/Dockerfile
+            clone_or_pull "{{ webapp_repository_url }}" "{{ tili_dir }}/webapp" && cp -f {{ jenkins_home }}/environment/frontend/.env {{ tili_dir }}/webapp/.env && echo "FROM javascript-tili:latest" > {{ tili_dir }}/webapp/Dockerfile
             clone_or_pull "{{ mobile_repository_url }}" "{{ tili_dir }}/mobile"
 
             cp {{ jenkins_home }}/tili_jobs.groovy .
+            docker network create tili-network || true
         ''')
         jobDsl {
             targets 'tili_jobs.groovy'

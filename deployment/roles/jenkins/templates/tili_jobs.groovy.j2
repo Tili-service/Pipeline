@@ -1,9 +1,9 @@
 /* EIP JOBS */
-folder('Tili') {
+folder('EIP') {
     description('Folder for EIP pipeline jobs')
 }
 
-freeStyleJob('Tili/Push to production') {
+freeStyleJob('EIP/Push to Production') {
     description('Pushes the EIP repository to production.')
     triggers {
         scm('H/5 * * * *')
@@ -43,14 +43,50 @@ freeStyleJob('Tili/Push to production') {
     }
 }
 
-freeStyleJob('Tili/Run Go Backend') {
+
+
+/* BACKEND JOBS */
+folder('EIP/Backend') {
+    description('Folder for EIP backend jobs')
+}
+
+freeStyleJob('EIP/Backend/Run Go Backend') {
     description('Runs the Go backend using the go-tili image.')
     steps {
         shell('''
             docker stop tili-backend || true
             docker rm tili-backend || true
 
-            docker compose -f {{ jenkins_home }}/Tili/backend/docker-compose.yml up --build
+            docker compose -f {{ jenkins_home }}/Tili/backend/docker-compose.yml up --build -d
+        ''')
+    }
+}
+
+freeStyleJob('EIP/Backend/Remove Backend Volumes') {
+    description('Removes the backend volumes to reset the database.')
+    steps {
+        shell('''
+            docker compose -f {{ jenkins_home }}/Tili/backend/docker-compose.yml down -v
+        ''')
+    }
+}
+
+
+
+/* FRONTEND JOBS */
+folder('EIP/Frontend') {
+    description('Folder for EIP frontend jobs')
+}
+
+freeStyleJob('EIP/Frontend/Run Frontend') {
+    description('Runs the frontend using the javascript-tili image.')
+    steps {
+        shell('''
+            docker stop tili-frontend || true
+            docker rm tili-frontend || true
+
+            docker build -t tili-frontend {{ tili_dir }}/webapp
+            docker run -d --name tili-frontend --network tili-network -p 3000:3000 tili-frontend
         ''')
     }
 }

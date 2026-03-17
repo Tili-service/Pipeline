@@ -18,10 +18,17 @@
     proto: tcp
   tags: firewall
 
-- name: setup firewall for jenkins additional port
+- name: setup firewall for jenkins backend port
   ufw:
     rule: allow
     port: "8000"
+    proto: tcp
+  tags: firewall
+
+- name: setup firewall for jenkins webapp port
+  ufw:
+    rule: allow
+    port: "3000"
     proto: tcp
   tags: firewall
 ...
