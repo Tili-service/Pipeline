@@ -1,0 +1,12 @@
+jenkins:
+  securityRealm:
+    ldap:
+      configurations:
+        - server: "ldap://lldap:3890"
+          rootDN: "dc=mon-infra,dc=local"
+          managerDN: "uid=admin,ou=people,dc=mon-infra,dc=local"
+          managerPasswordSecret: "${LDAP_ADMIN_PASSWORD}"
+
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false

@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  lldap:
+    image: lldap/lldap:latest
+    container_name: annuaire-ldap
+    restart: unless-stopped
+    ports:
+      - "3890:3890"
+      - "17170:17170"
+    environment:
+      - LLDAP_JWT_SECRET=une_longue_cle_aleatoire_pour_la_securite
+      - LLDAP_LDAP_BASE_DN=dc=mon-infra,dc=local
+      - LLDAP_LDAP_USER_PASS=${LLDAP_LDAP_USER_PASS}
+      - LLDAP_LDAP_USER_EMAIL=${LLDAP_LDAP_USER_EMAIL}
+    volumes:
+      - lldap_data:/data
+    networks:
+      - infra-net
+
+  dind:
+    image: docker:dind
+    container_name: jenkins-docker
+    restart: unless-stopped
+    privileged: true
+    environment:
+      - DOCKER_TLS_CERTDIR=/certs
+    volumes:
+      - jenkins-docker-certs:/certs/client
+      - jenkins-data:/var/jenkins_home
+    networks:
+      infra-net:
+        aliases:
+          - docker 
+
+  jenkins:
+    build: ./
+    container_name: jenkins
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    environment:
+      - CASC_JENKINS_CONFIG=/usr/share/jenkins/ref/jenkins-casc.yaml
+      - LDAP_ADMIN_PASSWORD=${LLDAP_LDAP_USER_PASS}
+      - DOCKER_HOST=tcp://docker:2376
+      - DOCKER_CERT_PATH=/certs/client
+      - DOCKER_TLS_VERIFY=1
+    volumes:
+      - jenkins-data:/var/jenkins_home
+      - jenkins-docker-certs:/certs/client:ro
+    networks:
+      - infra-net
+    depends_on:
+      - lldap
+      - dind
+
+volumes:
+  lldap_data:
+  jenkins-data:
+  jenkins-docker-certs:
+
+networks:
+  infra-net:
+    driver: bridge
