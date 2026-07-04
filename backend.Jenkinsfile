@@ -2,7 +2,7 @@ pipeline {
     agent any
     
     parameters {
-        string(name: 'GIT_BACKEND_REPO_URL', defaultValue: '', description: 'URL of the Git (http) repository to clone')
+        string(name: 'GIT_BACKEND_REPO_URL', defaultValue: 'https://github.com/Tili-service/Backend.git', description: 'URL of the Git (http) repository to clone')
     }
     
     stages {
