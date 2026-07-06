@@ -19,7 +19,7 @@ pipeline {
         IMAGE_FULL_TAG       = "${REGISTRY_URL}/${IMAGE_NAME}:${BUILD_TAG}"
         IMAGE_LATEST_TAG     = "${REGISTRY_URL}/${IMAGE_NAME}:latest"
         
-        // Go caching directories for the dynamic container agents
+        // Go caching directories mapped to the host to speed up builds
         GOCACHE              = '/var/jenkins_home/go-cache/cache'
         GOPATH               = '/var/jenkins_home/go-cache/path'
     }
@@ -43,19 +43,18 @@ pipeline {
         }
 
         stage('Code Quality (Go Lint & Vet)') {
-            agent {
-                docker {
-                    image 'golang:1.25-alpine'
-                    args "-v /var/jenkins_home/go-cache:/go -e GOCACHE=/go/cache -e GOPATH=/go/path"
-                }
-            }
             steps {
-                dir('app') {
-                    echo 'Running formatting check...'
-                    sh 'go fmt ./...'
-                    
-                    echo 'Running static analysis (go vet)...'
-                    sh 'go vet ./...'
+                script {
+                    // Use docker.image().inside to mount the existing checkout workspace instead of launching a new one
+                    docker.image('golang:1.25-alpine').inside("-v /var/jenkins_home/go-cache:/go -e GOCACHE=/go/cache -e GOPATH=/go/path") {
+                        dir('app') {
+                            echo 'Running formatting check...'
+                            sh 'go fmt ./...'
+                            
+                            echo 'Running static analysis (go vet)...'
+                            sh 'go vet ./...'
+                        }
+                    }
                 }
             }
         }
@@ -64,36 +63,29 @@ pipeline {
             when {
                 expression { return params.RUN_SECURITY_SCAN }
             }
-            agent {
-                docker {
-                    image 'securego/gosec:2.19.0'
-                    // We run gosec inside container pointing to backend source code
-                    args "-v /var/jenkins_home/go-cache:/go -e GOCACHE=/go/cache -e GOPATH=/go/path"
-                }
-            }
             steps {
-                dir('app') {
-                    echo 'Running Go security scanner (gosec)...'
-                    // Run security scan and continue even if issues found (to inspect reports), but return non-zero on high severity
-                    sh 'gosec -fmt=text -severity=high -confidence=medium ./...'
+                script {
+                    docker.image('securego/gosec:2.19.0').inside("-v /var/jenkins_home/go-cache:/go -e GOCACHE=/go/cache -e GOPATH=/go/path") {
+                        dir('app') {
+                            echo 'Running Go security scanner (gosec)...'
+                            sh 'gosec -fmt=text -severity=high -confidence=medium ./...'
+                        }
+                    }
                 }
             }
         }
 
         stage('Run Unit & Integration Tests') {
-            agent {
-                docker {
-                    image 'golang:1.25-alpine'
-                    args "-v /var/jenkins_home/go-cache:/go -e GOCACHE=/go/cache -e GOPATH=/go/path"
-                }
-            }
             steps {
-                dir('app') {
-                    echo 'Running unit tests with coverage profile...'
-                    sh 'go test -v -race -coverprofile=coverage.out -covermode=atomic ./...'
-                    
+                script {
+                    docker.image('golang:1.25-alpine').inside("-v /var/jenkins_home/go-cache:/go -e GOCACHE=/go/cache -e GOPATH=/go/path") {
+                        dir('app') {
+                            echo 'Running unit tests with coverage profile...'
+                            sh 'go test -v -race -coverprofile=coverage.out -covermode=atomic ./...'
+                        }
+                    }
                     echo 'Archiving test coverage reports...'
-                    archiveArtifacts artifacts: 'coverage.out', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'app/coverage.out', allowEmptyArchive: true
                 }
             }
         }
@@ -101,10 +93,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo "Building Docker image: ${IMAGE_FULL_TAG}..."
-                // Since build context is app/, we specify the Dockerfile inside it.
                 sh "docker build -t ${IMAGE_FULL_TAG} ./app"
-                
-                // Tag it as latest for convenient local runs
                 sh "docker tag ${IMAGE_FULL_TAG} ${IMAGE_LATEST_TAG}"
             }
         }
@@ -115,7 +104,6 @@ pipeline {
             }
             steps {
                 echo 'Scanning built docker image with Trivy...'
-                // Run trivy scanner against local built image
                 sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL --exit-code 0 ${IMAGE_FULL_TAG}"
             }
         }
@@ -127,7 +115,6 @@ pipeline {
             steps {
                 script {
                     echo "Logging into Docker Registry at ${REGISTRY_URL}..."
-                    // Utilizing Jenkins credentials binding safely
                     withCredentials([usernamePassword(credentialsId: CREDENTIALS_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
                         sh "docker login -u ${DOCKER_USER} -p ${DOCKER_PASSWORD} ${REGISTRY_URL}"
                         
@@ -157,11 +144,9 @@ pipeline {
                     echo "Deploying backend version ${BUILD_TAG} to ${targetEnv} environment..."
                     
                     if (targetEnv == 'production') {
-                        // Advanced Gate: Ask for operator approval before production rollout
                         input message: 'Approve deployment to Production environment?', ok: 'Deploy'
                     }
                     
-                    // Deployment execution: can be ssh commands, k8s, docker-compose, or cd/ci scripts
                     echo "Deployment to ${targetEnv} succeeded!"
                 }
             }

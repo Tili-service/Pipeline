@@ -42,28 +42,24 @@ pipeline {
         }
 
         stage('Install Dependencies') {
-            agent {
-                docker {
-                    image 'node:20-alpine'
-                    args "-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache"
-                }
-            }
             steps {
-                echo 'Installing node modules using clean install (npm ci)...'
-                sh 'npm ci'
+                script {
+                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache") {
+                        echo 'Installing node modules using clean install (npm ci)...'
+                        sh 'npm ci'
+                    }
+                }
             }
         }
 
         stage('Lint & Code Style') {
-            agent {
-                docker {
-                    image 'node:20-alpine'
-                    args "-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache"
-                }
-            }
             steps {
-                echo 'Checking syntax & formatting (eslint)...'
-                sh 'npm run lint'
+                script {
+                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache") {
+                        echo 'Checking syntax & formatting (eslint)...'
+                        sh 'npm run lint'
+                    }
+                }
             }
         }
 
@@ -71,52 +67,42 @@ pipeline {
             when {
                 expression { return params.RUN_SECURITY_SCAN }
             }
-            agent {
-                docker {
-                    image 'node:20-alpine'
-                    args "-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache"
-                }
-            }
             steps {
-                echo 'Running dependency security audit (npm audit)...'
-                // exit code 0 on warning, fail build only if high/critical vulnerabilities found
-                sh 'npm audit --audit-level=high || true'
+                script {
+                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache") {
+                        echo 'Running dependency security audit (npm audit)...'
+                        sh 'npm audit --audit-level=high || true'
+                    }
+                }
             }
         }
 
         stage('Run Unit Tests') {
-            agent {
-                docker {
-                    image 'node:20-alpine'
-                    args "-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache"
-                }
-            }
             steps {
-                echo 'Executing unit and component tests (vitest)...'
-                sh 'npm run test'
+                script {
+                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache") {
+                        echo 'Executing unit and component tests (vitest)...'
+                        sh 'npm run test'
+                    }
+                }
             }
         }
 
         stage('Build Static Production Output') {
-            agent {
-                docker {
-                    image 'node:20-alpine'
-                    args "-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache"
-                }
-            }
             steps {
-                echo 'Validating Next.js compilation...'
-                // Disabling telemetry to keep logs clean
-                sh 'NEXT_TELEMETRY_DISABLED=1 npm run build'
+                script {
+                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache") {
+                        echo 'Validating Next.js compilation...'
+                        sh 'NEXT_TELEMETRY_DISABLED=1 npm run build'
+                    }
+                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 echo "Building Docker image: ${IMAGE_FULL_TAG} using standalone mode..."
-                // Build the docker image locally using the newly added Dockerfile in Web-App root
                 sh "docker build -t ${IMAGE_FULL_TAG} ."
-                
                 sh "docker tag ${IMAGE_FULL_TAG} ${IMAGE_LATEST_TAG}"
             }
         }
@@ -167,7 +153,6 @@ pipeline {
                     echo "Deploying Web-App version ${BUILD_TAG} to ${targetEnv}..."
                     
                     if (targetEnv == 'production') {
-                        // Request manual confirmation for production rollout
                         input message: 'Approve rollout of Web-App to Production?', ok: 'Deploy'
                     }
                     
