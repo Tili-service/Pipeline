@@ -19,8 +19,9 @@ pipeline {
         IMAGE_FULL_TAG       = "${REGISTRY_URL}/${IMAGE_NAME}:${BUILD_TAG}"
         IMAGE_LATEST_TAG     = "${REGISTRY_URL}/${IMAGE_NAME}:latest"
         
-        // npm caching directory for the node container agents to speed up runs
-        NPM_CONFIG_CACHE     = '/var/jenkins_home/npm-cache'
+        // npm caching directory inside the container.
+        // Defined here so Jenkins automatically injects it into the Docker run environment.
+        NPM_CONFIG_CACHE     = '/npm-cache'
     }
 
     options {
@@ -31,6 +32,14 @@ pipeline {
     }
 
     stages {
+        stage('Prepare Cache Directories') {
+            steps {
+                echo 'Creating npm cache directory on the host with correct user permissions...'
+                // Pre-creating directory prevents Docker daemon from creating it owned by root:root upon mounting
+                sh 'mkdir -p /var/jenkins_home/npm-cache'
+            }
+        }
+
         stage('Checkout Source') {
             steps {
                 echo "Cloning webapp branch ${params.GIT_BRANCH} from ${params.GIT_WEBAPP_REPO_URL}..."
@@ -44,7 +53,7 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 script {
-                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache") {
+                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/npm-cache") {
                         echo 'Installing node modules using clean install (npm ci)...'
                         sh 'npm ci'
                     }
@@ -55,7 +64,7 @@ pipeline {
         stage('Lint & Code Style') {
             steps {
                 script {
-                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache") {
+                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/npm-cache") {
                         echo 'Checking syntax & formatting (eslint)...'
                         sh 'npm run lint'
                     }
@@ -69,7 +78,7 @@ pipeline {
             }
             steps {
                 script {
-                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache") {
+                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/npm-cache") {
                         echo 'Running dependency security audit (npm audit)...'
                         sh 'npm audit --audit-level=high || true'
                     }
@@ -80,7 +89,7 @@ pipeline {
         stage('Run Unit Tests') {
             steps {
                 script {
-                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache") {
+                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/npm-cache") {
                         echo 'Executing unit and component tests (vitest)...'
                         sh 'npm run test'
                     }
@@ -91,7 +100,7 @@ pipeline {
         stage('Build Static Production Output') {
             steps {
                 script {
-                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/var/jenkins_home/npm-cache") {
+                    docker.image('node:20-alpine').inside("-v /var/jenkins_home/npm-cache:/npm-cache") {
                         echo 'Validating Next.js compilation...'
                         sh 'NEXT_TELEMETRY_DISABLED=1 npm run build'
                     }

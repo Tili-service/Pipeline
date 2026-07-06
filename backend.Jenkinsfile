@@ -19,9 +19,10 @@ pipeline {
         IMAGE_FULL_TAG       = "${REGISTRY_URL}/${IMAGE_NAME}:${BUILD_TAG}"
         IMAGE_LATEST_TAG     = "${REGISTRY_URL}/${IMAGE_NAME}:latest"
         
-        // Go caching directories mapped to the host to speed up builds
-        GOCACHE              = '/var/jenkins_home/go-cache/cache'
-        GOPATH               = '/var/jenkins_home/go-cache/path'
+        // Go caching directories inside the container. 
+        // Defined here so Jenkins automatically injects them into the Docker run environment.
+        GOCACHE              = '/go/cache'
+        GOPATH               = '/go/path'
     }
 
     options {
@@ -32,6 +33,14 @@ pipeline {
     }
 
     stages {
+        stage('Prepare Cache Directories') {
+            steps {
+                echo 'Creating cache directories on the host with correct user permissions...'
+                // This ensures directories are owned by uid 1000 (jenkins) and not root when mounted by Docker
+                sh 'mkdir -p /var/jenkins_home/go-cache/cache /var/jenkins_home/go-cache/path'
+            }
+        }
+
         stage('Checkout Source') {
             steps {
                 echo "Cloning backend branch ${params.GIT_BRANCH} from ${params.GIT_BACKEND_REPO_URL}..."
@@ -45,8 +54,7 @@ pipeline {
         stage('Code Quality (Go Lint & Vet)') {
             steps {
                 script {
-                    // Use docker.image().inside to mount the existing checkout workspace instead of launching a new one
-                    docker.image('golang:1.25-alpine').inside("-v /var/jenkins_home/go-cache:/go -e GOCACHE=/go/cache -e GOPATH=/go/path") {
+                    docker.image('golang:1.25-alpine').inside("-v /var/jenkins_home/go-cache:/go") {
                         dir('app') {
                             echo 'Running formatting check...'
                             sh 'go fmt ./...'
@@ -65,7 +73,7 @@ pipeline {
             }
             steps {
                 script {
-                    docker.image('securego/gosec:2.19.0').inside("-v /var/jenkins_home/go-cache:/go -e GOCACHE=/go/cache -e GOPATH=/go/path") {
+                    docker.image('securego/gosec:2.19.0').inside("-v /var/jenkins_home/go-cache:/go") {
                         dir('app') {
                             echo 'Running Go security scanner (gosec)...'
                             sh 'gosec -fmt=text -severity=high -confidence=medium ./...'
@@ -78,7 +86,7 @@ pipeline {
         stage('Run Unit & Integration Tests') {
             steps {
                 script {
-                    docker.image('golang:1.25-alpine').inside("-v /var/jenkins_home/go-cache:/go -e GOCACHE=/go/cache -e GOPATH=/go/path") {
+                    docker.image('golang:1.25-alpine').inside("-v /var/jenkins_home/go-cache:/go") {
                         dir('app') {
                             echo 'Running unit tests with coverage profile...'
                             sh 'go test -v -race -coverprofile=coverage.out -covermode=atomic ./...'
