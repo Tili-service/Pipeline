@@ -73,7 +73,7 @@ pipeline {
             }
             steps {
                 script {
-                    docker.image('securego/gosec:2.19.0').inside("-v /var/jenkins_home/go-cache:/go") {
+                    docker.image('securego/gosec:2.19.0').inside("-v /var/jenkins_home/go-cache:/go --entrypoint=''") {
                         dir('app') {
                             echo 'Running Go security scanner (gosec)...'
                             sh 'gosec -fmt=text -severity=high -confidence=medium ./...'
