@@ -73,10 +73,13 @@ pipeline {
             }
             steps {
                 script {
-                    docker.image('securego/gosec:2.19.0').inside("-v /var/jenkins_home/go-cache:/go --entrypoint=''") {
+                    docker.image('golang:1.25-alpine').inside("-v /var/jenkins_home/go-cache:/go") {
                         dir('app') {
+                            echo 'Ensuring gosec is installed in cache...'
+                            sh 'if [ ! -f /go/path/bin/gosec ]; then go install github.com/securego/gosec/v2/cmd/gosec@latest; fi'
+                            
                             echo 'Running Go security scanner (gosec)...'
-                            sh 'gosec -fmt=text -severity=high -confidence=medium ./...'
+                            sh '/go/path/bin/gosec -fmt=text -severity=high -confidence=medium ./...'
                         }
                     }
                 }
