@@ -54,7 +54,7 @@ pipeline {
         stage('Code Quality (Go Lint & Vet)') {
             steps {
                 script {
-                    docker.image('golang:1.25-alpine').inside("-v /var/jenkins_home/go-cache:/go") {
+                    docker.image('golang:1.25').inside("-v /var/jenkins_home/go-cache:/go") {
                         dir('app') {
                             echo 'Running formatting check...'
                             sh 'go fmt ./...'
@@ -73,7 +73,7 @@ pipeline {
             }
             steps {
                 script {
-                    docker.image('golang:1.25-alpine').inside("-v /var/jenkins_home/go-cache:/go") {
+                    docker.image('golang:1.25').inside("-v /var/jenkins_home/go-cache:/go") {
                         dir('app') {
                             echo 'Ensuring gosec is installed in cache...'
                             sh 'if [ ! -f /go/path/bin/gosec ]; then go install github.com/securego/gosec/v2/cmd/gosec@latest; fi'
@@ -89,7 +89,7 @@ pipeline {
         stage('Run Unit & Integration Tests') {
             steps {
                 script {
-                    docker.image('golang:1.25-alpine').inside("-v /var/jenkins_home/go-cache:/go") {
+                    docker.image('golang:1.25').inside("-v /var/jenkins_home/go-cache:/go") {
                         dir('app') {
                             echo 'Running unit tests with coverage profile...'
                             sh 'go test -v -race -coverprofile=coverage.out -covermode=atomic ./...'
